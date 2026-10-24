@@ -1,0 +1,255 @@
+-- DIE Script UI & Functions (Fixed & Minimized UI)
+local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
+local LocalPlayer = Players.LocalPlayer
+local Camera = workspace.CurrentCamera
+
+-- สร้าง ScreenGui หลัก
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "DIEScriptGui"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
+
+-- กรอบสี่เหลี่ยมหลัก (Main Frame)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Size = UDim2.new(0, 220, 0, 260)
+MainFrame.Position = UDim2.new(0.5, -110, 0.5, -130)
+MainFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.ClipsDescendants = true
+MainFrame.Parent = ScreenGui
+
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+local TitleLabel = Instance.new("TextLabel")
+TitleLabel.Size = UDim2.new(1, 0, 0, 35)
+TitleLabel.BackgroundColor3 = Color3.fromRGB(45, 45, 45)
+TitleLabel.Text = "  DIE Script"
+TitleLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleLabel.TextSize = 16
+TitleLabel.Font = Enum.Font.GothamBold
+TitleLabel.TextXAlignment = Enum.TextXAlignment.Left
+TitleLabel.Parent = MainFrame
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 8)
+TitleCorner.Parent = TitleLabel
+
+-- ปุ่มลูกศรพับเก็บหน้าต่าง (Minimize / Maximize Button)
+local ToggleMinimizeBtn = Instance.new("TextButton")
+ToggleMinimizeBtn.Size = UDim2.new(0, 30, 0, 35)
+ToggleMinimizeBtn.Position = UDim2.new(1, -35, 0, 0)
+ToggleMinimizeBtn.BackgroundTransparency = 1
+ToggleMinimizeBtn.Text = "▲" -- ลูกศรชี้ขึ้น (ถ้าพับเก็บ) / เปลี่ยนเป็น ▼ เมื่อแสดงอยู่
+ToggleMinimizeBtn.TextColor3 = Color3.fromRGB(255, 255, 255)
+ToggleMinimizeBtn.TextSize = 14
+ToggleMinimizeBtn.Font = Enum.Font.GothamBold
+ToggleMinimizeBtn.Parent = MainFrame
+
+local isMinimized = false
+
+ToggleMinimizeBtn.MouseButton1Click:Connect(function()
+	isMinimized = not isMinimized
+	if isMinimized then
+		-- พับเก็บขึ้นไปเหลือขีดเล็กๆ
+		ToggleMinimizeBtn.Text = "▼"
+		MainFrame:TweenSize(UDim2.new(0, 220, 0, 35), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
+	else
+		-- ขยายหน้าต่างลงมาแสดงผลเต็ม
+		ToggleMinimizeBtn.Text = "▲"
+		MainFrame:TweenSize(UDim2.new(0, 220, 0, 260), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.2, true)
+	end
+end)
+
+-- ฟังก์ชันสร้างปุ่มเปิด/ปิดฟังก์ชันภายใน UI
+local function createToggle(name, yPos, callback)
+	local label = Instance.new("TextLabel")
+	label.Size = UDim2.new(0, 130, 0, 30)
+	label.Position = UDim2.new(0, 10, 0, yPos)
+	label.BackgroundTransparency = 1
+	label.Text = name
+	label.TextColor3 = Color3.fromRGB(220, 220, 220)
+	label.TextSize = 13
+	label.Font = Enum.Font.Gotham
+	label.TextXAlignment = Enum.TextXAlignment.Left
+	label.Parent = MainFrame
+
+	local toggleBtn = Instance.new("TextButton")
+	toggleBtn.Size = UDim2.new(0, 50, 0, 24)
+	toggleBtn.Position = UDim2.new(1, -60, 0, yPos + 3)
+	toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+	toggleBtn.Text = ""
+	toggleBtn.Parent = MainFrame
+
+	local btnCorner = Instance.new("UICorner")
+	btnCorner.CornerRadius = UDim.new(1, 0)
+	btnCorner.Parent = toggleBtn
+
+	local circle = Instance.new("Frame")
+	circle.Size = UDim2.new(0, 18, 0, 18)
+	circle.Position = UDim2.new(0, 3, 0, 3)
+	circle.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+	circle.Parent = toggleBtn
+
+	local circleCorner = Instance.new("UICorner")
+	circleCorner.CornerRadius = UDim.new(1, 0)
+	circleCorner.Parent = circle
+
+	local active = false
+	toggleBtn.MouseButton1Click:Connect(function()
+		active = not active
+		if active then
+			toggleBtn.BackgroundColor3 = Color3.fromRGB(0, 170, 255)
+			circle:TweenPosition(UDim2.new(1, -21, 0, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
+		else
+			toggleBtn.BackgroundColor3 = Color3.fromRGB(60, 60, 60)
+			circle:TweenPosition(UDim2.new(0, 3, 0, 3), Enum.EasingDirection.Out, Enum.EasingStyle.Quad, 0.15, true)
+		end
+		callback(active)
+	end)
+end
+
+-- ตัวแปรสถานะฟังก์ชัน
+local invisEnabled = false
+local noclipEnabled = false
+local espEnabled = false
+local espMaxDistance = 500
+
+-- 1. ฟังก์ชันล่องหน (Invisibility - ปรับปรุงการซ่อนชิ้นส่วนทั้งหมด)
+createToggle("Invisibility", 45, function(state)
+	invisEnabled = state
+	local character = LocalPlayer.Character
+	if character then
+		for _, part in ipairs(character:GetDescendants()) do
+			if part:IsA("BasePart") or part:IsA("Decal") then
+				part.Transparency = invisEnabled and 1 or 0
+			end
+		end
+	end
+end)
+
+LocalPlayer.CharacterAdded:Connect(function(newChar)
+	task.wait(1)
+	if invisEnabled then
+		for _, part in ipairs(newChar:GetDescendants()) do
+			if part:IsA("BasePart") or part:IsA("Decal") then
+				part.Transparency = 1
+			end
+		end
+	end
+end)
+
+-- 2. ฟังก์ชันทะลุกำแพง (Noclip)
+createToggle("Noclip", 85, function(state)
+	noclipEnabled = state
+end)
+
+RunService.Stepped:Connect(function()
+	if noclipEnabled and LocalPlayer.Character then
+		for _, part in ipairs(LocalPlayer.Character:GetDescendants()) do
+			if part:IsA("BasePart") then
+				part.CanCollide = false
+			end
+		end
+	end
+end)
+
+-- 3. ฟังก์ชัน ESP (มองทะลุกำแพงเห็นกรอบสีแดงผู้เล่นอื่น)
+createToggle("ESP", 125, function(state)
+	espEnabled = state
+	if not state then
+		for _, player in ipairs(Players:GetPlayers()) do
+			if player._espBox then
+				player._espBox.Visible = false
+			end
+		end
+	end
+end)
+
+-- ช่องปรับระยะทาง ESP
+local espDistLabel = Instance.new("TextLabel")
+espDistLabel.Size = UDim2.new(0, 130, 0, 20)
+espDistLabel.Position = UDim2.new(0, 10, 0, 165)
+espDistLabel.BackgroundTransparency = 1
+espDistLabel.Text = "ESP Distance: 500"
+espDistLabel.TextColor3 = Color3.fromRGB(180, 180, 180)
+espDistLabel.TextSize = 11
+espDistLabel.Font = Enum.Font.Gotham
+espDistLabel.TextXAlignment = Enum.TextXAlignment.Left
+espDistLabel.Parent = MainFrame
+
+local distBox = Instance.new("TextBox")
+distBox.Size = UDim2.new(0, 60, 0, 22)
+distBox.Position = UDim2.new(1, -70, 0, 165)
+distBox.BackgroundColor3 = Color3.fromRGB(50, 50, 50)
+distBox.Text = "500"
+distBox.TextColor3 = Color3.fromRGB(255, 255, 255)
+distBox.TextSize = 12
+distBox.Font = Enum.Font.Gotham
+distBox.Parent = MainFrame
+
+local boxCorner = Instance.new("UICorner")
+boxCorner.CornerRadius = UDim.new(0, 4)
+boxCorner.Parent = distBox
+
+distBox.FocusLost:Connect(function()
+	local val = tonumber(distBox.Text)
+	if val then
+		espMaxDistance = val
+		espDistLabel.Text = "ESP Distance: " .. val
+	else
+		distBox.Text = tostring(espMaxDistance)
+	end
+end)
+
+-- วาดกรอบ ESP รอบตัวผู้เล่นอื่น
+RunService.RenderStepped:Connect(function()
+	for _, player in ipairs(Players:GetPlayers()) do
+		if player ~= LocalPlayer then
+			if not player._espBox then
+				local box = Drawing.new("Square")
+				box.Visible = false
+				box.Color = Color3.fromRGB(255, 0, 0)
+				box.Thickness = 1.5
+				box.Filled = false
+				player._espBox = box
+			end
+
+			local box = player._espBox
+			local character = player.Character
+			local hrp = character and character:FindFirstChild("HumanoidRootPart")
+			local humanoid = character and character:FindFirstChild("Humanoid")
+
+			if espEnabled and hrp and humanoid and humanoid.Health > 0 then
+				local dist = (Camera.CFrame.Position - hrp.Position).Magnitude
+				if dist <= espMaxDistance then
+					local vector, onScreen = Camera:WorldToViewportPoint(hrp.Position)
+					if onScreen then
+						local scale = 2500 / vector.Z
+						box.Size = Vector2.new(24 * scale, 38 * scale)
+						box.Position = Vector2.new(vector.X - box.Size.X / 2, vector.Y - box.Size.Y / 2)
+						box.Visible = true
+					else
+						box.Visible = false
+					end
+				else
+					box.Visible = false
+				end
+			else
+				box.Visible = false
+			end
+		end
+	end
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	if player._espBox then
+		player._espBox:Remove()
+		player._espBox = nil
+	end
+end)
